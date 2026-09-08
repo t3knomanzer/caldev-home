@@ -4,25 +4,169 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cal Dev — Apartaments Turístics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #ECEFE8;
+      --ink: #15201C;
+      --green: #618373;
+      --green-soft: #799587;
+    }
     html, body {
       height: 100%;
       margin: 0;
-      background: #ECEFE8;
+      background: var(--bg);
     }
     body {
       display: flex;
       align-items: center;
       justify-content: center;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
     }
-    img {
-      width: min(60vw, 60vh, 360px);
-      height: auto;
+    /* The hero occupies the same box the logo image did (its size and the 28vh lift),
+       and the text sits at the logo's own internal offsets. 1em = the "Cal Dev" size. */
+    .hero {
+      --w: min(60vw, 60vh, 360px);
+      position: relative;
+      width: var(--w);
+      height: var(--w);
       margin-bottom: 28vh;
+      font-size: calc(var(--w) * 0.162);
+      line-height: 1;
+    }
+    .hero-text {
+      position: absolute;
+      left: 10.9%;
+      top: 33.3%;
+    }
+    .wordmark {
+      font-size: 1em;
+      font-weight: 800;
+      letter-spacing: 0;
+      margin: 0;
+      white-space: pre;
+      min-width: calc(7ch + 0.55em); /* full "Cal Dev" + cursor, so nothing shifts while typing */
+    }
+    .cursor {
+      display: inline-block;
+      width: 0.40em;
+      height: 0.67em;
+      margin-left: 0.15em;
+      vertical-align: -0.04em; /* sits on the baseline like the block in the logo */
+      background: var(--green);
+    }
+    .blinking {
+      animation: blink 1.1s steps(1, end) infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+    .sub, .place {
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      white-space: nowrap;
+    }
+    .sub {
+      font-size: 0.255em;
+      margin: 0;
+    }
+    .rule {
+      width: 1.94em;
+      height: 0.345em;
+      background: var(--green);
+      margin: 1.18em 0 0;
+      font-size: 0.255em;
+    }
+    .place {
+      font-size: 0.21em;
+      margin: 0.88em 0 0;
+    }
+    .tagline {
+      font-size: 0.23em;
+      font-weight: 400;
+      line-height: 1.33;
+      color: var(--green-soft);
+      margin: 2.99em 0 0;
+    }
+
+    /* Output lines: hidden until JS "prints" them, space is reserved so nothing shifts. */
+    .js .reveal {
+      visibility: hidden;
+    }
+    .js .reveal.shown {
+      visibility: visible;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .js .reveal { visibility: visible; }
+      .blinking { animation: none; }
     }
   </style>
 </head>
 <body>
-  <img src="assets/logo.jpg" alt="Cal Dev — Apartaments Turístics, Bellver de Cerdanya">
+  <div class="hero">
+    <div class="hero-text">
+      <h1 class="wordmark"><span class="typed" id="typed">Cal Dev</span><span class="cursor" id="cursor"></span></h1>
+      <p class="sub reveal">APARTAMENTS TURÍSTICS</p>
+      <div class="rule reveal"></div>
+      <p class="place reveal">BELLVER DE CERDANYA</p>
+      <p class="tagline reveal" lang="en">Disconnect.<br>Develop what matters.</p>
+    </div>
+  </div>
+
+  <script>
+    document.documentElement.classList.add('js');
+
+    (function () {
+      var typed = document.getElementById('typed');
+      var cursor = document.getElementById('cursor');
+      var reveals = document.querySelectorAll('.reveal');
+      var text = typed.textContent;
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // "stdout": lines print one after another, no fade.
+      function printOutput() {
+        var i = 0;
+        (function next() {
+          if (i >= reveals.length) { cursor.classList.add('blinking'); return; }
+          reveals[i++].classList.add('shown');
+          setTimeout(next, 70 + Math.random() * 90);
+        })();
+      }
+
+      if (reduced) {
+        reveals.forEach(function (el) { el.classList.add('shown'); });
+        return;
+      }
+
+      typed.textContent = '';
+
+      // Human-ish keystrokes: fast with jitter, a small hitch before the space.
+      function start() {
+        var i = 0;
+        (function step() {
+          typed.textContent = text.slice(0, ++i);
+          if (i < text.length) {
+            var delay = 45 + Math.random() * 55;
+            if (text[i] === ' ') delay += 80;
+            setTimeout(step, delay);
+          } else {
+            setTimeout(printOutput, 220); // "Enter"
+          }
+        })();
+      }
+
+      // Wait for the webfont so character widths don't jump mid-type.
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(start);
+      } else {
+        start();
+      }
+    })();
+  </script>
 </body>
 </html>
