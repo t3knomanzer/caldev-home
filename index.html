@@ -105,9 +105,55 @@
       .js .reveal { visibility: visible; }
       .blinking { animation: none; }
     }
+
+    /* Live webcam background (Bellver de Cerdanya, Projecte 4 Estacions).
+       The video and scrim sit behind the body, whose opaque paper background hides them
+       until the stream plays steadily; then the paper dissolves in a single crossfade. */
+    .cam-bg, .cam-scrim {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .cam-bg {
+      object-fit: cover;
+      object-position: 50% 50%;
+      z-index: -2;
+    }
+    .cam-scrim {
+      z-index: -1;
+      /* Pine tint over the whole frame, deeper behind the wordmark so the text reads. */
+      background:
+        radial-gradient(ellipse 55% 50% at 50% 42%, rgba(21, 32, 28, 0.65) 0%, rgba(21, 32, 28, 0) 100%),
+        linear-gradient(180deg, rgba(21, 32, 28, 0.74) 0%, rgba(21, 32, 28, 0.88) 100%);
+    }
+    .cam-credit {
+      position: fixed;
+      right: 16px;
+      bottom: 12px;
+      margin: 0;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--green-soft);
+      opacity: 0;
+      transition: opacity 1.4s ease;
+    }
+    .cam-credit a { color: inherit; }
+    /* Everything that changes on reveal fades on the same clock. */
+    body { transition: background-color 1.4s ease; }
+    .hero-text, .hero-text * { transition: color 1.4s ease; }
+    html.live {
+      --ink: #ECEFE8;
+      --green-soft: #C9D3C8;
+    }
+    html.live body { background: transparent; }
+    html.live .cam-credit { opacity: 1; }
   </style>
 </head>
 <body>
+  <video class="cam-bg" autoplay muted playsinline aria-hidden="true" tabindex="-1"></video>
+  <div class="cam-scrim" aria-hidden="true"></div>
   <div class="hero">
     <div class="hero-text">
       <h1 class="wordmark"><span class="typed" id="typed">Cal Dev</span><span class="cursor" id="cursor"></span></h1>
@@ -117,6 +163,7 @@
       <p class="tagline reveal" lang="en">Disconnect.<br>Develop what matters.</p>
     </div>
   </div>
+  <p class="cam-credit">Càmera en directe · <a href="https://app.projecte4estacions.com/cam/bellver" target="_blank" rel="noopener noreferrer">Projecte 4 Estacions</a> · Ajuntament de Bellver</p>
 
   <script>
     document.documentElement.classList.add('js');
@@ -166,6 +213,56 @@
       } else {
         start();
       }
+    })();
+
+    // Live webcam background: HLS stream from Projecte 4 Estacions (Bellver de Cerdanya).
+    (function () {
+      var CAM_URL = 'https://cams.projecte4estacions.com/live/bellver/live.m3u8';
+      var video = document.querySelector('.cam-bg');
+      if (!video || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      function tryPlay() { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
+      video.addEventListener('canplay', tryPlay);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) tryPlay(); });
+      // Reveal only after the stream has played steadily for a moment, so the fade-in is clean.
+      var STEADY_SECONDS = 2;
+      var steadySince = null;
+      function resetSteady() { steadySince = null; }
+      function onTimeUpdate() {
+        if (video.paused || video.readyState < 3) { steadySince = null; return; }
+        if (steadySince === null) { steadySince = video.currentTime; return; }
+        if (video.currentTime - steadySince >= STEADY_SECONDS) {
+          video.removeEventListener('timeupdate', onTimeUpdate);
+          document.documentElement.classList.add('live');
+        }
+      }
+      video.addEventListener('timeupdate', onTimeUpdate);
+      video.addEventListener('waiting', resetSteady);
+      video.addEventListener('stalled', resetSteady);
+      video.addEventListener('pause', resetSteady);
+
+      // Chrome answers "maybe" to canPlayType for HLS but cannot demux it, so prefer hls.js
+      // (Media Source Extensions) and only use native HLS where MSE is missing (iOS Safari).
+      function playNative() {
+        if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = CAM_URL;
+      }
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1';
+      s.onerror = playNative;
+      s.onload = function () {
+        if (!window.Hls || !Hls.isSupported()) { playNative(); return; }
+        var hls = new Hls({ liveDurationInfinity: true });
+        hls.loadSource(CAM_URL);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+        hls.on(Hls.Events.ERROR, function (_, data) {
+          if (!data.fatal) return;
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+          else hls.destroy();
+        });
+      };
+      document.head.appendChild(s);
     })();
   </script>
 </body>
